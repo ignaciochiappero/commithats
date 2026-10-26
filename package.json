@@ -11,13 +11,13 @@
     "test": "node --test",
     "smoke": "electron scripts/smoke.js",
     "noise": "node scripts/build-noise.js",
-    "dist": "node scripts/clean-dist.js && electron-builder --win nsis --x64 && node scripts/checksums.js"
+    "dist": "node scripts/clean-dist.js && electron-builder && node scripts/checksums.js"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "electron": "^44.7.0",
+    "electron": "^44.9.3",
     "electron-builder": "^26.15.3"
   },
   "build": {
@@ -34,13 +34,38 @@
     ],
     "publish": null,
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "src/assets/icon.png"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "artifactName": "CommitHats-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "artifactName": "CommitHats-${version}-${arch}.${ext}"
     },
     "electronFuses": {
       "runAsNode": false,

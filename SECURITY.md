@@ -14,13 +14,13 @@ Please don't open a public issue for a security problem. Fixes are released for 
 |----------|--------|
 | Does it see my GitHub password or token? | No. Sign-in happens in Git Credential Manager's own window, and tokens stay in your operating system's credential store. |
 | Does it send anything over the network? | No. It has no update check, no telemetry, and no API calls. |
-| Does it need administrator rights? | No. It installs for the current user only. |
+| Does it need administrator rights? | No. On Windows it installs for the current user only. On macOS you drag it to Applications, or to the Applications folder inside your home folder. |
 | Does it change my global git config? | Only when you add a folder or owner rule, and it asks first. Your global name, email, and credential settings are never changed. |
-| Is the installer signed? | Not yet. Windows SmartScreen warns about it. Check the download against its SHA-256 before running it. |
+| Is the installer signed? | Not with a certificate yet. Windows SmartScreen warns about the installer. On macOS the app is only signed ad hoc and not notarized, so Gatekeeper asks you to allow it once. Check the download against its SHA-256 before running it. |
 
 ## What it stores
 
-Everything the app keeps for itself is in `%APPDATA%\git-account-switcher` on Windows. The folder carries the app's first name and stays there, because the rules in your git config point into it.
+Everything the app keeps for itself is in `%APPDATA%\git-account-switcher` on Windows and in `~/Library/Application Support/git-account-switcher` on macOS. The folder carries the app's first name and stays there, because the rules in your git config point into it.
 
 | File | Contents | Secrets |
 |------|----------|---------|
@@ -58,7 +58,7 @@ Remote URLs that embed a password or token are detected. The app warns about the
 
 Keys made with **Generate** are ed25519 and have no passphrase, so that the app never handles a secret. A key without a passphrase can be used by anyone who can read the file.
 
-The file is created by your system's `ssh-keygen`, which restricts it to your own user. On Windows the file is readable by your account, administrators, and the system, and by no other user. To add a passphrase:
+The file is created by your system's `ssh-keygen`, which restricts it to your own user. On Windows the file is readable by your account, administrators, and the system, and by no other user. On macOS only your user can read it. To add a passphrase:
 
 ```bash
 ssh-keygen -p -f ~/.ssh/id_ed25519_work
@@ -77,7 +77,7 @@ The app does its work by running programs you already have. It passes arguments 
 | `git credential-manager` | Starting a sign-in when you press **Sign in** | Yes: Git Credential Manager talks to GitHub in its own window |
 | `ssh-keygen` | Creating a key when you press **Generate** | None |
 
-These programs are found through your `PATH`. The app trusts the `git` on your computer in the same way your terminal does.
+These programs are found through your `PATH`. The app trusts the `git` on your computer in the same way your terminal does. On macOS, an app opened from the Finder only gets the system folders in its `PATH`, so the app adds `/opt/homebrew/bin` and `/usr/local/bin` in front when they are missing, the way your terminal has them.
 
 One setting, `core.sshCommand`, is run by git through a shell. The app writes the key path inside single quotes, where nothing is interpreted, and refuses paths with control characters. The test suite covers paths that contain quotes and shell syntax.
 
@@ -97,14 +97,22 @@ In the packaged app, Electron is configured so that it cannot be used as a gener
 
 The app has no runtime dependencies. The installed program contains its own source and Electron, and nothing else from npm.
 
-Building it uses two development tools, `electron` and `electron-builder`. At the time of writing, `npm audit` reports no advisories for what ships in the app. It reports one advisory of moderate severity (GHSA-hp3w-g68c-fv3c, a denial of service in `sprintf-js`) in a library that `electron-builder` uses to download files during a build. That library is not part of the installed app.
+Building it uses two development tools, `electron` and `electron-builder`. Electron is listed as a development dependency, but it is what the installed app runs on, so its advisories apply to the app. `npm audit --omit=dev` leaves it out; read the full `npm audit` instead.
+
+At the time of writing, the app ships Electron 44.9.3, and `npm audit` reports no advisories for it. The advisories it does report (in `undici`, `fast-uri`, and `sprintf-js`) are in libraries that download Electron when you run `npm install` and that `electron-builder` uses during a build. None of them is part of the installed app.
 
 ## Verify a download
 
-Each release lists the SHA-256 of its installer. Compare it with the file you downloaded before you run it.
+Each release lists the SHA-256 of its installers. Compare it with the file you downloaded before you run it.
 
 ```powershell
 Get-FileHash .\CommitHats-Setup-*.exe -Algorithm SHA256
+```
+
+On macOS:
+
+```bash
+shasum -a 256 CommitHats-*.dmg
 ```
 
 You can also build the installer yourself from the source:
@@ -114,14 +122,14 @@ npm install
 npm run dist
 ```
 
-The result is written to `dist/`, with its checksum in `dist/SHA256SUMS.txt`.
+It builds for the system it runs on. The result is written to `dist/`, with its checksum in `dist/SHA256SUMS.txt`.
 
 ## Known limits
 
-- **The installer is not code-signed.** Windows SmartScreen shows a warning the first time you run it. Verify the checksum, or build from source.
+- **The installer is not code-signed with a certificate.** Windows SmartScreen shows a warning the first time you run it. On macOS the app is signed ad hoc, which keeps its files from being changed unnoticed but does not say who made it, and it is not notarized by Apple. Verify the checksum, or build from source.
 - **There is no automatic update.** You install a new version by downloading it.
 - **Generated keys have no passphrase.** See "SSH keys" above.
 - **The app's files are not encrypted.** They contain no secrets, but they are readable by anything that runs as your user. So is your git configuration.
 - **A rule applies to every repository that matches it.** An owner rule matches any repository whose remote URL names that owner, including one you did not create. The account's SSH command is then used for every SSH connection git makes from that repository, not only for connections to github.com. Public-key authentication never reveals your private key to a server.
 - **Anything running as your user can change the same files.** The app does not protect against other software on your account, and neither does git.
-- **Only Windows is tested.** macOS and Linux are untested.
+- **Only Windows and macOS are tested.** Linux is untested.

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard as systemClipboard, dialog, ipcMain, nativeTheme, session } from 'electron';
+import { app, BrowserWindow, clipboard as systemClipboard, dialog, ipcMain, Menu, nativeTheme, session } from 'electron';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +10,7 @@ import { createSshKeygen } from '../adapters/ssh-keygen.js';
 import { createAppService } from '../core/app-service.js';
 import { createGcm } from '../core/gcm.js';
 import { languageForLocale } from '../core/settings.js';
+import { withToolPath } from '../core/tool-path.js';
 import { registerIpc } from './ipc.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,9 @@ const DATA_FOLDER = 'git-account-switcher';
 // The ground color of each theme, so the window is never a white flash before the page paints.
 const GROUND = { dark: '#1a1514', light: '#f4ebea' };
 const SYSTEM_NAMES = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
+// The menu bar of macOS is always there. It carries what people expect of any app there,
+// such as Quit and the copy and paste shortcuts, and leaves out Electron's own developer menus.
+const MACOS_MENU = [{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }];
 const { version: APP_VERSION } = createRequire(import.meta.url)('../../package.json');
 
 /**
@@ -37,9 +41,9 @@ const { version: APP_VERSION } = createRequire(import.meta.url)('../../package.j
  */
 export async function startApp({
   userDataDir = process.env.COMMITHATS_DATA_DIR,
-  git = createGitCli({ env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }),
+  git = createGitCli({ env: { ...withToolPath(process.env), GIT_TERMINAL_PROMPT: '0' } }),
   gcm = createGcm(git),
-  keygen = createSshKeygen(),
+  keygen = createSshKeygen({ env: withToolPath(process.env) }),
   sshDir = path.join(os.homedir(), '.ssh'),
   clipboard = systemClipboard,
   defaultLanguage,
@@ -53,6 +57,7 @@ export async function startApp({
   }
 
   let mainWindow = null;
+  let openingWindow = null;
 
   app.on('second-instance', () => {
     if (!mainWindow) return;
@@ -65,6 +70,12 @@ export async function startApp({
 
   // The language of the system is only known once Electron is ready.
   await app.whenReady();
+
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(Menu.buildFromTemplate(MACOS_MENU));
+    // The packaged app has its icon in its bundle; run from source, the Dock would show Electron's.
+    if (!app.isPackaged) app.dock?.setIcon(APP_ICON);
+  }
 
   const userData = app.getPath('userData');
   const service = createAppService({
@@ -125,6 +136,15 @@ export async function startApp({
     return mainWindow;
   }
 
+  // On macOS the app stays open without a window, and clicking it in the Dock asks for one.
+  // That can happen while the first one is still opening, which must not give two windows.
+  function openWindow() {
+    openingWindow ??= createWindow().finally(() => {
+      openingWindow = null;
+    });
+    return openingWindow;
+  }
+
   registerIpc({
     ipcMain,
     dialog,
@@ -144,11 +164,11 @@ export async function startApp({
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (!mainWindow) openWindow();
   });
 
   // The page needs no browser permission (camera, location, notifications...), so every request is refused.
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   applyTheme((await service.getSettings()).theme);
-  return { window: await createWindow(), service };
+  return { window: await openWindow(), service };
 }

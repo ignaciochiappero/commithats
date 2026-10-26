@@ -15,9 +15,12 @@ Commit Hats for Git picks which account your local projects commit and push as: 
 
 ## Install
 
-Download the installer from this repository's Releases page and run it. It installs for your user only, without administrator rights, and adds a Start menu shortcut. You need Git on your computer.
+Download it from this repository's Releases page. You need Git on your computer.
 
-The installer is not code-signed yet, so Windows SmartScreen warns about it. [SECURITY.md](SECURITY.md) says what the app reads, writes, and runs, and how to check your download.
+- **Windows**: run `CommitHats-Setup-<version>.exe`. It installs for your user only, without administrator rights, and adds a Start menu shortcut.
+- **macOS**: open `CommitHats-<version>-arm64.dmg` (Apple silicon) or `CommitHats-<version>-x64.dmg` (Intel) and drag Commit Hats to Applications.
+
+Neither is code-signed with a certificate yet. On Windows, SmartScreen warns about the installer. On macOS, the first time you open the app it says Apple could not verify it: open **System Settings**, then **Privacy & Security**, and choose **Open Anyway** next to Commit Hats. [SECURITY.md](SECURITY.md) says what the app reads, writes, and runs, and how to check your download.
 
 To run it from the source instead:
 
@@ -57,11 +60,13 @@ To put the projects in another order, drag one by the dots on its left, or move 
 | Tool | Version | Needed for |
 |------|---------|------------|
 | Node.js | 20 or newer | Running from source and building. The installed app does not need it. |
-| Git | 2.36 or newer | Reading and writing config. Owner rules need 2.36. |
-| Git Credential Manager | Tested with 2.2.1 | Signing in to several accounts over HTTPS. It ships with Git for Windows. |
-| OpenSSH client (`ssh-keygen`) | Any | Generating keys from the app. It ships with Windows 10 and 11. |
+| Git | 2.36 or newer | Reading and writing config. Owner rules need 2.36. On macOS, the one from Homebrew or from the Xcode Command Line Tools. |
+| Git Credential Manager | Tested with 2.2.1 | Signing in to several accounts over HTTPS. It ships with Git for Windows. On macOS, install it with `brew install --cask git-credential-manager`. |
+| OpenSSH client (`ssh-keygen`) | Any | Generating keys from the app. It ships with Windows 10 and 11, and with macOS. |
 
-Developed and tested on Windows 11. macOS and Linux are untested.
+Developed on Windows 11 and tested on Windows 11 and macOS. Linux is untested.
+
+An app opened from the Finder or the Dock does not get the `PATH` of your terminal. So that it finds the same git and credential manager, the app adds `/opt/homebrew/bin` and `/usr/local/bin` in front of its `PATH` on macOS when they are missing.
 
 ## Rule or project?
 
@@ -119,7 +124,7 @@ ssh-keygen -p -f ~/.ssh/id_ed25519_work
 - Passwords and tokens. They stay in your credential manager.
 - Remotes, branches, and commits.
 
-The app keeps its own data in `%APPDATA%\git-account-switcher` on Windows: `state.json` (account labels, names, emails, usernames, SSH key paths, the list of project folders in the order you gave them, and your settings) and `accounts/` (the settings files that rules include). The folder carries the app's first name and stays there, because the rules in your git config point into it.
+The app keeps its own data in `%APPDATA%\git-account-switcher` on Windows and in `~/Library/Application Support/git-account-switcher` on macOS: `state.json` (account labels, names, emails, usernames, SSH key paths, the list of project folders in the order you gave them, and your settings) and `accounts/` (the settings files that rules include). The folder carries the app's first name and stays there, because the rules in your git config point into it.
 
 ## When git would ignore the account
 
@@ -161,7 +166,7 @@ Run these inside a repository that should use the account.
 | `npm test` | Unit and integration tests. They run the real git and ssh-keygen in a sandbox with its own "global" config. |
 | `npm run smoke` | Boots the app against throwaway repositories, drives the page with real key presses and a real drag, checks the result with git, and saves screenshots to `.smoke/`. It then opens the app a second time to check that the language, the theme, and the order of the projects were kept. |
 | `npm start` | Runs the app. Set `COMMITHATS_DATA_DIR` to try it with a separate data folder. |
-| `npm run dist` | Builds the Windows installer into `dist/`, with its checksum in `dist/SHA256SUMS.txt`. |
+| `npm run dist` | Builds for the system it runs on into `dist/`: the Windows installer, or the macOS disk images for Apple silicon and Intel. Their checksums go in `dist/SHA256SUMS.txt`. |
 | `npm run noise` | Rebuilds the grain tiles in `src/assets/`. The output is deterministic. |
 
 ```text

@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
-const installers = (await readdir(dist)).filter((name) => name.endsWith('.exe')).sort();
+// The Windows installer and the macOS disk images.
+const INSTALLER_EXTENSIONS = ['.exe', '.dmg'];
+
+const installers = (await readdir(dist)).filter((name) => INSTALLER_EXTENSIONS.includes(path.extname(name))).sort();
 if (installers.length === 0) {
   console.error('No installer found in dist/. Run the build first.');
   process.exit(1);

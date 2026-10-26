@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createGitCli } from '../../src/adapters/git-cli.js';
@@ -10,7 +10,9 @@ const INHERITED_GIT_VARIABLES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_CONFIG', 'GIT_
  * exercise the real git binary without reading or writing the developer's config.
  */
 export async function createSandbox(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'gas-test-'));
+  // Git answers with real paths. On macOS the temporary folder is behind a symlink
+  // (/var is /private/var), so the sandbox starts from its real path to match them.
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'gas-test-')));
   t.after(() => rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
 
   const globalConfig = path.join(root, 'global.gitconfig');
